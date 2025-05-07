@@ -4,21 +4,28 @@
   <meta charset="UTF-8">
   <title>WebXR Pose Overlay in AR</title>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
       font-family: Arial, sans-serif;
+      position: relative;
     }
-    canvas {
-      position: absolute;
-      top: 0; left: 0;
+
+    canvas#xr-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
-      display: block;
       z-index: 0;
+      display: block;
     }
+
     #poseOverlay {
-      position: fixed;
+      position: absolute;
       top: 10px;
       left: 10px;
       background: rgba(0, 0, 0, 0.6);
@@ -27,13 +34,15 @@
       border-radius: 8px;
       font-size: 14px;
       line-height: 1.4;
-      z-index: 999;
+      z-index: 9999;
+      pointer-events: none;
     }
+
     #startButton {
-      position: fixed;
+      position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 1000;
+      z-index: 10000;
       padding: 10px 15px;
       font-size: 16px;
     }
@@ -48,10 +57,12 @@
     let xrSession = null;
     let xrRefSpace = null;
     let gl = null;
+
     const canvas = document.getElementById('xr-canvas');
     const poseOverlay = document.getElementById('poseOverlay');
+    const startButton = document.getElementById('startButton');
 
-    document.getElementById('startButton').addEventListener('click', async () => {
+    startButton.addEventListener('click', async () => {
       if (!navigator.xr) {
         poseOverlay.textContent = 'WebXR not supported on this device.';
         return;
@@ -65,7 +76,9 @@
 
       try {
         xrSession = await navigator.xr.requestSession('immersive-ar', {
-          requiredFeatures: ['local']
+          requiredFeatures: ['local'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: document.body }
         });
 
         gl = canvas.getContext('webgl', { xrCompatible: true });
@@ -92,8 +105,9 @@
       if (pose) {
         const pos = pose.transform.position;
         const orient = pose.transform.orientation;
+        poseOverlay.style.display = 'block'; // Ensure it stays visible
         poseOverlay.textContent =
-          `Position:
+`Position:
   x = ${pos.x.toFixed(3)}
   y = ${pos.y.toFixed(3)}
   z = ${pos.z.toFixed(3)}
@@ -105,7 +119,6 @@ Orientation:
   w = ${orient.w.toFixed(3)}`;
       }
 
-      // Even if you're not rendering anything, you need to clear the buffer
       const baseLayer = xrSession.renderState.baseLayer;
       gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
