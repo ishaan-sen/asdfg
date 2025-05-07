@@ -1,49 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>WebXR Pose (No Camera)</title>
+  <meta charset="UTF-8">
+  <title>WebXR Pose Overlay in AR</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    #poseData {
-      margin-top: 20px;
-      font-size: 1.2em;
-      white-space: pre-wrap;
-      background: #f5f5f5;
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 0;
+    }
+    #poseOverlay {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
       padding: 12px;
       border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+      z-index: 999;
+    }
+    #startButton {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      padding: 10px 15px;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <h1>WebXR Phone Pose (No Camera)</h1>
-  <button id="start">Start Pose Tracking</button>
-  <div id="poseData">Pose data will appear here.</div>
+  <button id="startButton">Start AR Session</button>
+  <div id="poseOverlay">Waiting for pose...</div>
+  <canvas id="xr-canvas"></canvas>
 
   <script>
     let xrSession = null;
     let xrRefSpace = null;
-    const poseDisplay = document.getElementById('poseData');
+    let gl = null;
+    const canvas = document.getElementById('xr-canvas');
+    const poseOverlay = document.getElementById('poseOverlay');
 
-    document.getElementById('start').addEventListener('click', async () => {
-      if (navigator.xr) {
-        try {
-          xrSession = await navigator.xr.requestSession('inline', {
-            requiredFeatures: ['local']
-          });
+    document.getElementById('startButton').addEventListener('click', async () => {
+      if (!navigator.xr) {
+        poseOverlay.textContent = 'WebXR not supported on this device.';
+        return;
+      }
 
-          const glCanvas = document.createElement('canvas');
-          const gl = glCanvas.getContext('webgl', { xrCompatible: true });
-          await xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession, gl) });
+      const supported = await navigator.xr.isSessionSupported('immersive-ar');
+      if (!supported) {
+        poseOverlay.textContent = 'immersive-ar not supported on this device.';
+        return;
+      }
 
-          xrRefSpace = await xrSession.requestReferenceSpace('local');
+      try {
+        xrSession = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['local']
+        });
 
-          xrSession.requestAnimationFrame(onXRFrame);
-        } catch (err) {
-          poseDisplay.textContent = 'Error starting XR session: ' + err.message;
-        }
-      } else {
-        poseDisplay.textContent = 'WebXR not supported in this browser.';
+        gl = canvas.getContext('webgl', { xrCompatible: true });
+        await gl.makeXRCompatible();
+
+        xrSession.updateRenderState({
+          baseLayer: new XRWebGLLayer(xrSession, gl)
+        });
+
+        xrRefSpace = await xrSession.requestReferenceSpace('local');
+
+        xrSession.requestAnimationFrame(onXRFrame);
+      } catch (e) {
+        poseOverlay.textContent = 'Failed to start AR session: ' + e.message;
+        console.error(e);
       }
     });
 
@@ -55,18 +92,23 @@
       if (pose) {
         const pos = pose.transform.position;
         const orient = pose.transform.orientation;
-
-        poseDisplay.textContent = `Position:
+        poseOverlay.textContent =
+          `Position:
   x = ${pos.x.toFixed(3)}
   y = ${pos.y.toFixed(3)}
   z = ${pos.z.toFixed(3)}
 
-Orientation (quaternion):
+Orientation:
   x = ${orient.x.toFixed(3)}
   y = ${orient.y.toFixed(3)}
   z = ${orient.z.toFixed(3)}
   w = ${orient.w.toFixed(3)}`;
       }
+
+      // Even if you're not rendering anything, you need to clear the buffer
+      const baseLayer = xrSession.renderState.baseLayer;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
   </script>
 </body>
