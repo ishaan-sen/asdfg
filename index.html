@@ -1,28 +1,24 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>WebXR Phone Pose Display</title>
+  <meta charset="UTF-8" />
+  <title>WebXR Pose (No Camera)</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
+    body { font-family: sans-serif; padding: 20px; }
     #poseData {
       margin-top: 20px;
       font-size: 1.2em;
       white-space: pre-wrap;
-      background: #f0f0f0;
-      padding: 15px;
+      background: #f5f5f5;
+      padding: 12px;
       border-radius: 8px;
     }
   </style>
 </head>
 <body>
-  <h1>WebXR Phone Pose Info</h1>
-  <button id="start">Start AR Session</button>
-
-  <div id="poseData">Pose data will appear here after session starts.</div>
+  <h1>WebXR Phone Pose (No Camera)</h1>
+  <button id="start">Start Pose Tracking</button>
+  <div id="poseData">Pose data will appear here.</div>
 
   <script>
     let xrSession = null;
@@ -32,13 +28,7 @@
     document.getElementById('start').addEventListener('click', async () => {
       if (navigator.xr) {
         try {
-          const supported = await navigator.xr.isSessionSupported('immersive-ar');
-          if (!supported) {
-            poseDisplay.textContent = 'WebXR immersive-ar not supported on this device.';
-            return;
-          }
-
-          xrSession = await navigator.xr.requestSession('immersive-ar', {
+          xrSession = await navigator.xr.requestSession('inline', {
             requiredFeatures: ['local']
           });
 
@@ -49,18 +39,16 @@
           xrRefSpace = await xrSession.requestReferenceSpace('local');
 
           xrSession.requestAnimationFrame(onXRFrame);
-
         } catch (err) {
-          poseDisplay.textContent = 'Failed to start AR session: ' + err.message;
-          console.error(err);
+          poseDisplay.textContent = 'Error starting XR session: ' + err.message;
         }
       } else {
-        poseDisplay.textContent = 'WebXR not supported on this browser.';
+        poseDisplay.textContent = 'WebXR not supported in this browser.';
       }
     });
 
     function onXRFrame(time, frame) {
-      let session = frame.session;
+      const session = frame.session;
       session.requestAnimationFrame(onXRFrame);
 
       const pose = frame.getViewerPose(xrRefSpace);
@@ -68,20 +56,16 @@
         const pos = pose.transform.position;
         const orient = pose.transform.orientation;
 
-        const posStr = `Position:
+        poseDisplay.textContent = `Position:
   x = ${pos.x.toFixed(3)}
   y = ${pos.y.toFixed(3)}
-  z = ${pos.z.toFixed(3)}`;
+  z = ${pos.z.toFixed(3)}
 
-        const orientStr = `Orientation (quaternion):
+Orientation (quaternion):
   x = ${orient.x.toFixed(3)}
   y = ${orient.y.toFixed(3)}
   z = ${orient.z.toFixed(3)}
   w = ${orient.w.toFixed(3)}`;
-
-        poseDisplay.textContent = `${posStr}\n\n${orientStr}`;
-      } else {
-        poseDisplay.textContent = 'Pose data not available yet...';
       }
     }
   </script>
