@@ -62,33 +62,26 @@
     const poseOverlay = document.getElementById('poseOverlay');
     const startButton = document.getElementById('startButton');
 
-    // 🔌 WebSocket setup for secure connection to robot
-    const ws = new WebSocket('wss://192.168.1.224:8765'); // Using wss:// with robot IP
+    const robotEndpoint = 'https://192.168.1.224:8765/pose';
+    let lastSentTime = 0;
 
-    ws.onopen = () => {
-      console.log('✅ Connected to WebSocket');
-      poseOverlay.textContent = 'Connected. Sending pose data...';
+    async function sendPoseOverHTTPS(poseData) {
+      try {
+        const response = await fetch(robotEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(poseData)
+        });
 
-      setInterval(() => {
-        const fakePose = {
-          position: { x: Math.random(), y: Math.random(), z: Math.random() },
-          orientation: { x: 0, y: 0, z: 0, w: 1 },
-          timestamp: Date.now()
-        };
-        ws.send(JSON.stringify(fakePose)); // Send random pose data
-        console.log("Sent pose:", fakePose);
-      }, 1000);
-    };
-
-    ws.onerror = (e) => {
-      console.error('❌ WebSocket error:', e);
-      poseOverlay.textContent = 'WebSocket error — check console.';
-    };
-
-    ws.onclose = () => {
-      console.warn('⚠️ WebSocket connection closed');
-      poseOverlay.textContent = 'WebSocket connection closed.';
-    };
+        if (!response.ok) {
+          console.error('❌ Failed to send pose:', response.statusText);
+        }
+      } catch (error) {
+        console.error('❌ Error sending pose:', error);
+      }
+    }
 
     startButton.addEventListener('click', async () => {
       if (!navigator.xr) {
@@ -146,15 +139,16 @@ Orientation:
   z = ${orient.z.toFixed(3)}
   w = ${orient.w.toFixed(3)}`;
 
-        // 📤 Send pose data over WebSocket
-        const poseData = {
-          position: { x: pos.x, y: pos.y, z: pos.z },
-          orientation: { x: orient.x, y: orient.y, z: orient.z, w: orient.w },
-          timestamp: Date.now()
-        };
-
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(poseData)); // Send real-time pose data
+        // Limit to 1 message every 0.1 seconds
+        const now = Date.now();
+        if (now - lastSentTime >= 100) {
+          const poseData = {
+            position: { x: pos.x, y: pos.y, z: pos.z },
+            orientation: { x: orient.x, y: orient.y, z: orient.z, w: orient.w },
+            timestamp: now
+          };
+          sendPoseOverHTTPS(poseData);
+          lastSentTime = now;
         }
       }
 
