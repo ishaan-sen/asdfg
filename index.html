@@ -62,12 +62,33 @@
     const poseOverlay = document.getElementById('poseOverlay');
     const startButton = document.getElementById('startButton');
 
-    // 🔌 WebSocket setup
-    const ws = new WebSocket('ws://192.168.1.224:8765');
+    // 🔌 WebSocket setup for secure connection to robot
+    const ws = new WebSocket('wss://192.168.1.224:8765'); // Using wss:// with robot IP
 
-    ws.onopen = () => console.log('✅ WebSocket connected to robot');
-    ws.onerror = (e) => console.error('WebSocket error:', e);
-    ws.onclose = () => console.warn('WebSocket closed');
+    ws.onopen = () => {
+      console.log('✅ Connected to WebSocket');
+      poseOverlay.textContent = 'Connected. Sending pose data...';
+
+      setInterval(() => {
+        const fakePose = {
+          position: { x: Math.random(), y: Math.random(), z: Math.random() },
+          orientation: { x: 0, y: 0, z: 0, w: 1 },
+          timestamp: Date.now()
+        };
+        ws.send(JSON.stringify(fakePose)); // Send random pose data
+        console.log("Sent pose:", fakePose);
+      }, 1000);
+    };
+
+    ws.onerror = (e) => {
+      console.error('❌ WebSocket error:', e);
+      poseOverlay.textContent = 'WebSocket error — check console.';
+    };
+
+    ws.onclose = () => {
+      console.warn('⚠️ WebSocket connection closed');
+      poseOverlay.textContent = 'WebSocket connection closed.';
+    };
 
     startButton.addEventListener('click', async () => {
       if (!navigator.xr) {
@@ -133,7 +154,7 @@ Orientation:
         };
 
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(poseData));
+          ws.send(JSON.stringify(poseData)); // Send real-time pose data
         }
       }
 
