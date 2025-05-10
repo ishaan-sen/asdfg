@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>WebXR Pose Overlay in AR</title>
+  <title>WebXR Pose Streaming</title>
   <style>
     html, body {
       margin: 0;
@@ -62,6 +62,13 @@
     const poseOverlay = document.getElementById('poseOverlay');
     const startButton = document.getElementById('startButton');
 
+    // 🔌 WebSocket setup
+    const ws = new WebSocket('ws://192.168.1.224:8765');
+
+    ws.onopen = () => console.log('✅ WebSocket connected to robot');
+    ws.onerror = (e) => console.error('WebSocket error:', e);
+    ws.onclose = () => console.warn('WebSocket closed');
+
     startButton.addEventListener('click', async () => {
       if (!navigator.xr) {
         poseOverlay.textContent = 'WebXR not supported on this device.';
@@ -89,7 +96,6 @@
         });
 
         xrRefSpace = await xrSession.requestReferenceSpace('local');
-
         xrSession.requestAnimationFrame(onXRFrame);
       } catch (e) {
         poseOverlay.textContent = 'Failed to start AR session: ' + e.message;
@@ -105,7 +111,8 @@
       if (pose) {
         const pos = pose.transform.position;
         const orient = pose.transform.orientation;
-        poseOverlay.style.display = 'block'; // Ensure it stays visible
+
+        poseOverlay.style.display = 'block';
         poseOverlay.textContent =
 `Position:
   x = ${pos.x.toFixed(3)}
@@ -117,6 +124,17 @@ Orientation:
   y = ${orient.y.toFixed(3)}
   z = ${orient.z.toFixed(3)}
   w = ${orient.w.toFixed(3)}`;
+
+        // 📤 Send pose data over WebSocket
+        const poseData = {
+          position: { x: pos.x, y: pos.y, z: pos.z },
+          orientation: { x: orient.x, y: orient.y, z: orient.z, w: orient.w },
+          timestamp: Date.now()
+        };
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(poseData));
+        }
       }
 
       const baseLayer = xrSession.renderState.baseLayer;
